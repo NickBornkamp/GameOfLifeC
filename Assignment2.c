@@ -145,27 +145,33 @@ int **gameoflife(int **a, int N, int maxgen, int threads)
             curr[r][c] = a[r][c];
         }
     }
+    
+  int maxRows = N/threads; 
+  int remainder = N % threads;
   
+  
+  #pragma omp parallel num_threads(threads) private(g, r, c) // private (r) shared(next, curr)
+  {
   
   for(g=0; g<maxgen; g++){
-    if(g % 100 == 0)
+  
+  int tid = omp_get_thread_num();
+    if(g % 100 == 0 && tid == 0)
         printf("Gen: %d \n", g);
-    // printf("egg %d\n", tid);
-    //printarray(curr, N, N);
-    //This is where the rows get split up to their respective cores
-     #pragma omp parallel for num_threads(threads) private (c)//collapse(2) // shared(next) private(c)
-    for(r = 1; r < N - 1; r++){
-       // int tid = omp_get_thread_num();
+        
+    #pragma omp barrier    
+        
+    #pragma omp for private(c)
+
+     for(r = 1; r < N - 1; r++){
+        
         
         for(c = 1; c < N - 1; c++){
            
-           // printf("Thread %d is working on row %d col %d\n", tid, r, c);
-            
+           // printf("Thread %d is working on row %dcol %d\n", tid, r, c); 
             int neighbors = calcNeighbors(curr, r, c);
             
-            //if(r == 1)
               //printf("Col %d has %d neighbors in thread%d\n", c, neighbors, tid);
-            
             if(curr[r][c] == 1){
                 if(neighbors <= 1 || neighbors >= 4 )
                     next[r][c] = 0;
@@ -176,22 +182,27 @@ int **gameoflife(int **a, int N, int maxgen, int threads)
                     next[r][c] = 1;
                 else
                   next[r][c] = 0;
-            }
-            
-            
-        }
+            }      
+        
+    }
+    
     }
     //End of Gen
-    //#pragma omp critical
-    //#pragma omp parallel for num_threads(threads) private (c)
+   
+   
+    #pragma omp barrier
+// Copy next generation to current generation
+            #pragma omp for private(c)
+   
     for (r = 0; r < N; r++) {
         for (c = 0; c < N; c++){ 
             curr[r][c] = next[r][c];
         }
     }
     calcghosts(curr, N);    
-  
   }
+  }
+  
   
   printf("All done\n");
   return curr;
